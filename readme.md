@@ -23,7 +23,7 @@ What to override?
 
 Any example?
 ------------
-[rock.py](Please open rock.py)
+[Please open rock.py](rock.py)
 
 In the example, I try to check best possible solution of chess rock-problem (an easier version of queen problem).
 The purpose is as follow:
@@ -53,5 +53,6 @@ Note: `x` represent empty cell, while `*` represent rock position
 
 Todo
 ----
+* use queen or knight problem as example, rock is too easy
 * optimize the code
 * implements genetics programming and grammatical evolution
