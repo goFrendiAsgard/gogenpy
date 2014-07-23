@@ -23,36 +23,37 @@ What to override?
 
 Any example?
 ------------
-[Please open rock.py](rock.py)
+[Please open n-queen.py](n-queen.py)
 
-In the example, I try to check best possible solution of chess rock-problem (an easier version of queen problem).
+In the example, I try to check best possible solution n-queen problem on 5x5 chess-board.
 The purpose is as follow:
-* Minimize the uncovered cell (Every cell in the board should be accessible by any rock)
-* Minimize the count of the rock
-* Minimize overlapping of rock
+* Minimize the uncovered cell (Every cell in the board should be accessible by at least (and preferably) a queen)
+* Minimize the count of the queen
+* Minimize count of queens in the same row, column or diagonal
 
 The result is as follow:
 ```
-GENERATION 52
-VARIATION : 47
+GENERATION 100
+VARIATION : 77
 
   BENCHMARK    : fitness
-  BEST GENE    : 0001010000001000000101000
-  BEST FITNESS : 16270.000000
-  ROCK COUNT   : 5
+  BEST GENE    : 1000000010000000010000000
+  BEST FITNESS : 16272.000000
+  QUEEN COUNT  : 3
   UNCOVERED    : 0
   OVERLAPPED   : 0
   FORMATION    :
-    xxx*x
     *xxxx
+    xxx*x
+    xxxxx
     xx*xx
-    xxxx*
-    x*xxx
+    xxxxx
 ```
-Note: `x` represent empty cell, while `*` represent rock position
+Good enough, you can use 3 queens in 5x5 chess-board
+
+Note: `x` represent empty cell, while `*` represent queen position
 
 Todo
 ----
-* use queen or knight problem as example, rock is too easy
 * optimize the code
 * implements genetics programming and grammatical evolution

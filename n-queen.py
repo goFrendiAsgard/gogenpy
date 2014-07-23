@@ -4,8 +4,26 @@ class GA(Gogenpy):
     '''
     def __init__(self, *args, **kwargs):
         Gogenpy.__init__(self, *args, **kwargs)
-        self._board_size = 5
+        self._board_size = kwargs.pop('board_size',5)
         self._gene_size = self._board_size ** 2
+        # queen basic movement
+        movement_pattern_list = (
+            ( 0, 0),         # current position
+            ( 1, 0),(-1, 0), # horizontal
+            ( 0, 1),( 0,-1), # vertical
+            (-1,-1),( 1, 1), # diagonal (left top - right bottom)
+            (-1, 1),( 1,-1), # diagonal (left bottom - right top)
+        )
+        # queen has no limit
+        movement_list = []
+        for i in range(1,self._board_size):
+            for  movement_pattern in movement_pattern_list:
+                row, col = movement_pattern
+                row *= i
+                col *= i
+                if [row, col] not in movement_list:
+                    movement_list.append([row, col])
+        self.movement_list = movement_list
 
     # we have different fitness measurement
     def calculate_fitness(self,gene,benchmark):
@@ -16,41 +34,41 @@ class GA(Gogenpy):
         return fitness
 
     def measurement(self, gene):
-        # calculate how many ones (it must be as few as possible)
         one_count = 0
-        for i in range(self._gene_size):
-            if gene[i] == '1':
-                one_count += 1
         overlapped_count = 0
         uncovered_count = 0
+        # calculate how many ones (it must be as few as possible)
         # calculate how many cell doesn't covered (it must be as few as possible)
         # calculate how many overlapped queen (it must be as few as possible)
         for i in range(self._gene_size):
+            if gene[i] == '1':
+                one_count += 1
             row = i / self._board_size
             col = i % self._board_size
             covered = False
-            if gene[i] == '1': # is rock
-                # horizontal
-                for other_col in range(self._board_size):
-                    if other_col != col and gene[row * self._board_size + other_col] == '1':
+            for movement in self.movement_list:
+                delta_row = movement[0]
+                delta_col = movement[1]
+                new_row = row + delta_row
+                # out of board, ignore
+                if new_row<0 or new_row >= self._board_size:
+                    continue
+                new_col = col + delta_col
+                # out of board, ignore
+                if new_col<0 or new_col >= self._board_size:
+                    continue
+                # don't include itself
+                if new_row != row or new_col != col:
+                    new_index = new_row * self._board_size + new_col
+                    # this is one, and other is also one
+                    if gene[new_index] == '1' and gene[i] == '1':
                         overlapped_count += 1
-                # vertical
-                for other_row in range(self._board_size):
-                    if other_row != row and gene[other_row * self._board_size + col] == '1':
-                        overlapped_count += 1
-            # horizontal
-            for other_col in range(self._board_size):
-                if gene[row * self._board_size + other_col] == '1':
-                    covered = True
-                    break
-            if not covered:
-                # vertical
-                for other_row in range(self._board_size):
-                    if gene[other_row * self._board_size + col] == '1':
+                    # this is not one, but there is one in line or diagonal
+                    if not covered and (gene[i] == '1' or (gene[new_index] == '1' and gene[i] == '0')):
                         covered = True
-                        break
             if not covered:
                 uncovered_count += 1
+
         return (uncovered_count, overlapped_count, one_count)
 
 
@@ -64,7 +82,7 @@ class GA(Gogenpy):
             print('  BENCHMARK    : %s' %(benchmark))
             print('  BEST GENE    : %s' %(str(individu['gene'])))
             print('  BEST FITNESS : %f' %(individu['fitness'][benchmark]))
-            print('  ROCK COUNT   : %d' %(one_count))
+            print('  QUEEN COUNT  : %d' %(one_count))
             print('  UNCOVERED    : %d' %(uncovered_count))
             print('  OVERLAPPED   : %d' %(overlapped_count))
             print('  FORMATION    :')
@@ -74,6 +92,5 @@ class GA(Gogenpy):
                 print('    %s' %(chunk))
 
         
-ga = GA(population_size=100, max_epoch=1000)
+ga = GA(population_size=150, max_epoch=100)
 ga.execute()
-ga.show_result()
