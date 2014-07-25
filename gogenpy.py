@@ -49,8 +49,8 @@ class Gogenpy(object):
     def execute(self):
         # first population
         self._population = []
-        for i in range(self._population_size):
-            self._population.append({'gene':self.new_individu()})
+        for gene in self.initialize_population():
+            self._population.append({'gene':gene})
         self._completing_population()
         while self._epoch < self._max_epoch and not self.convergance():
             # new population
@@ -72,8 +72,14 @@ class Gogenpy(object):
             self._completing_population()
             if self._verbose:
                 self.show_result()
+            else:
+                print('GENERATION %d' %(self._epoch+1))
             self._epoch += 1
+        # adjust self._epoch value
         self._epoch -= 1
+        if not self._verbose:
+            self.show_result()
+        print('TOTAL POSSIBLE SOLUTION EVALUATED : %d' %(len(self._memoized_gene)))        
 
     def show_result(self, *args, **kwargs):
         ''' to be overridden by user
@@ -143,12 +149,29 @@ class Gogenpy(object):
             return fitness
         return None
 
+    def initialize_population(self):
+        gene_list = []
+        while len(gene_list) < self._population_size:
+            gene = self.new_individu()
+            attempt = 0
+            while attempt < 100 and gene in gene_list:
+                gene = self.new_individu()
+                attempt += 1;
+            gene_list.append(gene)
+        return gene_list
+
     def new_individu(self):
         ''' To be overridden by user
         '''
         gene = ''
         for i in xrange(self._gene_size):
             gene += str(random.randrange(2))
+        attempt = 0
+        while attempt<20 and gene in self._memoized_gene:
+            gene = ''
+            for i in xrange(self._gene_size):
+                gene += str(random.randrange(2))
+            attempt += 1
         return gene
 
     def mutation(self, benchmark):

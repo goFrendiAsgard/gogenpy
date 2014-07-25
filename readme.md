@@ -25,7 +25,7 @@ Any example?
 ------------
 [Please open n-queen.py](n-queen.py)
 
-In the example, I try to check best possible solution n-queen problem on 5x5 chess-board.
+In the example, I try to check best possible solution n-queen problem on 8x8 chess-board.
 The purpose is as follow:
 * Minimize the uncovered cell (Every cell in the board should be accessible by at least (and preferably) a queen)
 * Minimize the count of the queen
@@ -33,23 +33,26 @@ The purpose is as follow:
 
 The result is as follow:
 ```
-GENERATION 100
-VARIATION : 77
+GENERATION 259
+VARIATION : 243
 
   BENCHMARK    : fitness
-  BEST GENE    : 1000000010000000010000000
-  BEST FITNESS : 16272.000000
-  QUEEN COUNT  : 3
+  BEST GENE    : 0000010010000000000000100100000000000000000000010000000000001000
+  BEST FITNESS : 266298.000000
+  QUEEN COUNT  : 6
   UNCOVERED    : 0
   OVERLAPPED   : 0
   FORMATION    :
-    *xxxx
-    xxx*x
-    xxxxx
-    xx*xx
-    xxxxx
+    xxxxx*xx
+    *xxxxxxx
+    xxxxxx*x
+    x*xxxxxx
+    xxxxxxxx
+    xxxxxxx*
+    xxxxxxxx
+    xxxx*xxx
 ```
-Good enough, you can use 3 queens in 5x5 chess-board
+Good enough, you can use 6 queens in 8x8 chess-board
 
 Note: `x` represent empty cell, while `*` represent queen position
 

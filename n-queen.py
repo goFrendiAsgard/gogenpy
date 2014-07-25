@@ -68,7 +68,6 @@ class GA(Gogenpy):
                         covered = True
             if not covered:
                 uncovered_count += 1
-
         return (uncovered_count, overlapped_count, one_count)
 
 
@@ -92,5 +91,5 @@ class GA(Gogenpy):
                 print('    %s' %(chunk))
 
         
-ga = GA(population_size=150, max_epoch=100)
+ga = GA(population_size=500, max_epoch=1000, board_size=8, verbose=False)
 ga.execute()
