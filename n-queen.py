@@ -1,5 +1,5 @@
 from gogenpy import Gogenpy
-class GA(Gogenpy):
+class GA_For_Queen(Gogenpy):
     '''Demo to solve chess rock problem
     '''
     def __init__(self, *args, **kwargs):
@@ -91,5 +91,10 @@ class GA(Gogenpy):
                 print('    %s' %(chunk))
 
         
-ga = GA(population_size=500, max_epoch=1000, board_size=8, verbose=False)
+ga = GA_For_Queen(board_size=8, 
+    population_size = 1000, max_epoch = 1000, 
+    operation_rate={'mutation':40, 'crossover':40},
+    elitism_rate = 10,
+    new_rate = 10,
+    verbose = False)
 ga.execute()

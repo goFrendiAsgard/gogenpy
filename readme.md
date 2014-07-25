@@ -25,36 +25,46 @@ Any example?
 ------------
 [Please open n-queen.py](n-queen.py)
 
-In the example, I try to check best possible solution n-queen problem on 8x8 chess-board.
-The purpose is as follow:
-* Minimize the uncovered cell (Every cell in the board should be accessible by at least (and preferably) a queen)
-* Minimize the count of the queen
-* Minimize count of queens in the same row, column or diagonal
+In the example, I try to find the minimum number of queens needed to occupy or attack all squares.
+Please take a look at [this link](http://mathworld.wolfram.com/QueensProblem.html) for more information.
 
-The result is as follow:
+I use this configuration:
 ```
-GENERATION 259
-VARIATION : 243
+ga = GA_For_Queen(board_size=8, 
+    population_size = 1000, max_epoch = 1000, 
+    operation_rate={'mutation':40, 'crossover':40},
+    elitism_rate = 10,
+    new_rate = 10,
+    verbose = False)
+ga.execute()
+```
+
+And the result is as follow:
+```
+GENERATION 108
+VARIATION : 495
 
   BENCHMARK    : fitness
-  BEST GENE    : 0000010010000000000000100100000000000000000000010000000000001000
-  BEST FITNESS : 266298.000000
-  QUEEN COUNT  : 6
+  BEST GENE    : 0000000000000100100000000000000000010000000000000000000100100000
+  BEST FITNESS : 266299.000000
+  QUEEN COUNT  : 5
   UNCOVERED    : 0
   OVERLAPPED   : 0
   FORMATION    :
+    xxxxxxxx
     xxxxx*xx
     *xxxxxxx
-    xxxxxx*x
-    x*xxxxxx
+    xxxxxxxx
+    xxx*xxxx
     xxxxxxxx
     xxxxxxx*
-    xxxxxxxx
-    xxxx*xxx
+    xx*xxxxx
 ```
-Good enough, you can use 6 queens in 8x8 chess-board
+Good, the program shows that I need 5 queens to occupy or attack all squares in 8x8 chess-board.
 
-Note: `x` represent empty cell, while `*` represent queen position
+Note: 
+* `x` represent empty cell, while `*` represent queen position.
+* I attempt several failures before finding this configuration. In genetics algorithm, there is no guarantee you will find a perfectly best solution.
 
 Todo
 ----
