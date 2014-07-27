@@ -119,7 +119,12 @@ class Gogenpy(object):
             else:
                 fitness_dict = {}
                 for benchmark in self._benchmark_list:
+                    # calculate fitness
                     calculated_fitness = self.calculate_fitness(gene, benchmark)
+                    # if calculated fitness is list or tuple, then the gene should be modified.
+                    if (isinstance(calculated_fitness, tuple) or isinstance(calculated_fitness, list)) and len(calculated_fitness)>1:
+                        individu['gene'] = calculated_fitness[0]
+                        calculated_fitness = calculated_fitness[1]
                     fitness_dict[benchmark] = calculated_fitness if calculated_fitness > 0 else 0.001
                 self._memoized_gene.append(gene)
                 self._memoized_fitness.append(fitness_dict)
@@ -142,12 +147,11 @@ class Gogenpy(object):
         self._generation_sorted.append(self._population_sorted)
 
     def calculate_fitness(self, gene, benchmark):
-        ''' To be overridden by user 
+        ''' To be overridden by user, return one of these types:
+            * float, the fitness value of gene for current benchmark
+            * tupple/list, the first element should be the new gene (in case of there is gene manipulation) 
         '''
-        if benchmark == 'fitness':
-            fitness = reduce(lambda x,y:int(x)+int(y), gene, 0)
-            return fitness
-        return None
+        raise Exception('Fitness Calculation Not Implemented')
 
     def initialize_population(self):
         gene_list = []
@@ -184,7 +188,7 @@ class Gogenpy(object):
             if selected_gene == '' and individu['accumulation'][benchmark] > number:
                 selected_gene = individu['gene']
                 break
-        number = random.randrange(self._gene_size)
+        number = random.randrange(len(selected_gene))
         # mutation
         new_gene = ''
         for i in range(len(selected_gene)):
@@ -213,3 +217,90 @@ class Gogenpy(object):
         # crossover
         new_gene = selected_gene_1[:number] + selected_gene_2[number:]
         return new_gene
+
+class GA(Gogenpy):
+    pass
+
+default_bnf = {
+    '<expr>'            : ['<expr> <operator> <expr>', '<unary-operator> <expr>', '<float>', '<int>'],
+    '<digit>'           : ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+    '<int>'             : ['<digit>', '<digit><int>'],
+    '<float>'           : ['<int>.<int>'],
+    '<operator>'        : ['+', '-', '*', '/', '%', '^', 'and', 'or'],
+    '<unary-operator>'  : ['not','-']
+}
+
+class GE(GA):
+    def __init__(self, *args, **kwargs):
+        GA.__init__(self, *args, **kwargs)
+        self._bnf = kwargs.pop('bnf', default_bnf)
+        self._start_expr = kwargs.pop('start_expr', '<expr>')
+        # translation limit, now when we should give up
+        self._max_node_translation = kwargs.pop('max_node_translation', 500)
+        # expr_key_list, sorted descending by it's length
+        self._expr_key_list = []
+        for key in self._bnf:
+            self._expr_key_list.append(key)
+        self._expr_key_list = tuple(sorted(self._expr_key_list, key = lambda x: len(x), reverse=True))
+        # genotype-phenotype translation memoization
+        self._memoized_phenotype = {}
+        # digit needed for certain rule-length, calculating log over and over has a high cost
+        self._digit_needed = [1]
+        for i in range(1,100):
+            self._digit_needed.append(self._calculate_digit_needed(i))
+        self._digit_needed = tuple(self._digit_needed)
+
+    def _calculate_digit_needed(self, rule_length):
+        digit_needed = int(math.ceil(math.log(rule_length,2)))
+        if digit_needed < 1:
+            digit_needed = 1
+        return digit_needed
+
+    def translate(self, gene):
+        # look from memoized phenotype and return if there is similar gene
+        key_list = filter(lambda x: len(x)<len(gene) and gene[:len(x)] == x, self._memoized_phenotype)
+        if len(key_list)>0:
+            key = key_list[0]
+            return (key, self._memoized_phenotype[key])
+        # do the process regularly
+        expr = self._start_expr
+        current_index = 0
+        total_digit_needed = 0
+        translation_found = True
+        node_translation = 0
+        # translation
+        while translation_found and node_translation < self._max_node_translation:
+            translation_found = False
+            # traverse expr
+            for i in range(len(expr)):
+                # look for each key if the key was found
+                for expr_key in self._expr_key_list:
+                    if expr[i:i+len(expr_key)] == expr_key:
+                        translation_found = True
+                        # get current rule & rule length
+                        rule_list = self._bnf[expr_key]
+                        rule_length = len(rule_list)
+                        # look for digit needed
+                        if rule_length < len(self._digit_needed):
+                            digit_needed = self._digit_needed[rule_length]
+                        else:
+                            digit_needed = self._calculate_digit_needed(rule_length)
+                        # gene duplication if needed
+                        if current_index+digit_needed >= len(gene):
+                            gene += gene
+                        # determine rule used
+                        rule_index = int(gene[current_index:current_index+digit_needed], 2) % rule_length
+                        rule = rule_list[rule_index]
+                        current_index += digit_needed
+                        # do translation
+                        expr = expr[:i] + rule + expr[i+len(expr_key):]
+                        node_translation += 1
+                        break
+                if translation_found:
+                    break
+        if node_translation >= self._max_node_translation:
+            raise Exception('Translation Error')
+        # prunning
+        gene = gene[:current_index]
+        self._memoized_phenotype[gene] = expr
+        return (gene, expr)

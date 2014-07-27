@@ -1,9 +1,15 @@
-from gogenpy import Gogenpy
-class GA_For_Queen(Gogenpy):
+from gogenpy import GA
+
+'''
+Find the minimum number of queens needed to occupy or attack all squares.
+Please take a look at http://mathworld.wolfram.com/QueensProblem.html for more information.
+'''
+
+class GA_N_Queen(GA):
     '''Demo to solve chess rock problem
     '''
     def __init__(self, *args, **kwargs):
-        Gogenpy.__init__(self, *args, **kwargs)
+        GA.__init__(self, *args, **kwargs)
         self._board_size = kwargs.pop('board_size',5)
         self._gene_size = self._board_size ** 2
         # queen basic movement
@@ -91,7 +97,7 @@ class GA_For_Queen(Gogenpy):
                 print('    %s' %(chunk))
 
         
-ga = GA_For_Queen(board_size=8, 
+ga = GA_N_Queen(board_size=8, 
     population_size = 1000, max_epoch = 1000, 
     operation_rate={'mutation':40, 'crossover':40},
     elitism_rate = 10,
