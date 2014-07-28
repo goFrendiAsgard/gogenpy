@@ -12,22 +12,25 @@ class Gogenpy(object):
     '''
 
     def __init__(self, *args, **kwargs):
-        self._max_epoch = kwargs.pop('max_epoch', 50)
-        self._population_size = kwargs.pop('population_size', 20)
-        self._benchmark_list = kwargs.pop('benchmark',['fitness'])
-        self._operation_list = kwargs.pop('operation',['mutation','crossover'])
-        self._operation_rate = kwargs.pop('operation_rate',{'mutation':30, 'crossover':30})
-        self._elitism_rate = kwargs.pop('elitism_rate',20)
-        self._new_rate = kwargs.pop('new_rate',20)
-        self._gene_size = kwargs.pop('gene_size',50)
-        self._verbose = kwargs.pop('verbose',True)
-        self._epoch                  = 0
-        self._population             = []
-        self._population_sorted      = {}
-        self._generation             = []
-        self._generation_sorted      = []
-        self._memoized_gene          = []
-        self._memoized_fitness       = []
+        self._minimum_fitness           = kwargs.pop('minimum_fitness', 10**-20)
+        self._broken_fitness            = kwargs.pop('broken_fitness', 10**-100)
+        self._procreation_individuals   = kwargs.pop('procreation_individuals', [])
+        self._max_epoch                 = kwargs.pop('max_epoch', 50)
+        self._population_size           = kwargs.pop('population_size', 20)
+        self._benchmark_list            = kwargs.pop('benchmark',['fitness'])
+        self._operation_list            = kwargs.pop('operation',['mutation','crossover'])
+        self._operation_rate            = kwargs.pop('operation_rate',{'mutation':30, 'crossover':30})
+        self._elitism_rate              = kwargs.pop('elitism_rate',20)
+        self._new_rate                  = kwargs.pop('new_rate',20)
+        self._gene_size                 = kwargs.pop('gene_size',50)
+        self._verbose                   = kwargs.pop('verbose',True)
+        self._epoch                     = 0
+        self._population                = []
+        self._population_sorted         = {}
+        self._generation                = []
+        self._generation_sorted         = []
+        self._memoized_gene             = []
+        self._memoized_fitness          = []
         # get total rate
         total_operation_rate = reduce(lambda x,y: x+self._operation_rate[y], self._operation_rate, 0)
         total_rate = total_operation_rate + self._elitism_rate + self._new_rate
@@ -62,10 +65,10 @@ class Gogenpy(object):
                 for operation in self._operation_list:
                     operation_rate = self._operation_rate[operation]
                     operation_func = getattr(self, operation)
-                    for i in range(operation_rate):
+                    for i in xrange(operation_rate):
                         new_population.append({'gene':operation_func(benchmark)})
             # freshly new individu
-            for i in range(self._new_rate):
+            for i in xrange(self._new_rate):
                 new_population.append({'gene':self.new_individu()})
             
             self._population = new_population
@@ -120,12 +123,17 @@ class Gogenpy(object):
                 fitness_dict = {}
                 for benchmark in self._benchmark_list:
                     # calculate fitness
-                    calculated_fitness = self.calculate_fitness(gene, benchmark)
+                    try:
+                        calculated_fitness = self.calculate_fitness(gene, benchmark)
+                    except (KeyboardInterrupt, SystemExit):
+                        raise
+                    except:
+                        calculated_fitness = self._broken_fitness
                     # if calculated fitness is list or tuple, then the gene should be modified.
                     if (isinstance(calculated_fitness, tuple) or isinstance(calculated_fitness, list)) and len(calculated_fitness)>1:
                         individu['gene'] = calculated_fitness[0]
                         calculated_fitness = calculated_fitness[1]
-                    fitness_dict[benchmark] = calculated_fitness if calculated_fitness > 0 else 0.001
+                    fitness_dict[benchmark] = calculated_fitness if calculated_fitness > 0 else self._minimum_fitness
                 self._memoized_gene.append(gene)
                 self._memoized_fitness.append(fitness_dict)
             individu['fitness'] = fitness_dict
@@ -154,7 +162,11 @@ class Gogenpy(object):
         raise Exception('Fitness Calculation Not Implemented')
 
     def initialize_population(self):
-        gene_list = []
+        if isinstance(self._procreation_individuals, tuple):
+            self._procreation_individuals = list(self._procreation_individuals)
+        elif not isinstance(self._procreation_individuals, list):
+            self._procreation_individuals = [self._procreation_individuals]
+        gene_list = self._procreation_individuals
         while len(gene_list) < self._population_size:
             gene = self.new_individu()
             attempt = 0
@@ -191,9 +203,9 @@ class Gogenpy(object):
         number = random.randrange(len(selected_gene))
         # mutation
         new_gene = ''
-        for i in range(len(selected_gene)):
+        for i in xrange(len(selected_gene)):
             if i == number:
-                new_gene += '1' if selected_gene[number] == 0 else '0'
+                new_gene += '1' if selected_gene[number] == '0' else '0'
             else:
                 new_gene += selected_gene[number]
         return new_gene
@@ -233,10 +245,11 @@ default_bnf = {
 class GE(GA):
     def __init__(self, *args, **kwargs):
         GA.__init__(self, *args, **kwargs)
-        self._bnf = kwargs.pop('bnf', default_bnf)
-        self._start_expr = kwargs.pop('start_expr', '<expr>')
+        self._bnf                   = kwargs.pop('bnf', default_bnf)
+        self._start_expr            = kwargs.pop('start_expr', '<expr>')
         # translation limit, now when we should give up
-        self._max_node_translation = kwargs.pop('max_node_translation', 500)
+        self._max_node_translation  = kwargs.pop('max_node_translation', 500)
+        self._failure_expression    = kwargs.pop('failure_expression','--FAILURE--')
         # expr_key_list, sorted descending by it's length
         self._expr_key_list = []
         for key in self._bnf:
@@ -246,9 +259,32 @@ class GE(GA):
         self._memoized_phenotype = {}
         # digit needed for certain rule-length, calculating log over and over has a high cost
         self._digit_needed = [1]
-        for i in range(1,100):
+        for i in xrange(1,100):
             self._digit_needed.append(self._calculate_digit_needed(i))
         self._digit_needed = tuple(self._digit_needed)
+
+    def mutation(self, benchmark):
+        ''' To be overridden by user
+        '''
+        # select gene to be mutated
+        number = random.randrange(1000)
+        selected_gene = ''
+        for individu in self._population_sorted[benchmark]:
+            if selected_gene == '' and individu['accumulation'][benchmark] > number:
+                selected_gene = individu['gene']
+                break
+
+        number_list = [] 
+        for i in xrange(int(math.ceil(len(selected_gene)/2.0))):
+            number_list.append(random.randrange(len(selected_gene)))
+        # mutation
+        new_gene = ''
+        for i in xrange(len(selected_gene)):
+            if i in number_list:
+                new_gene += '1' if selected_gene[i] == '0' else '0'
+            else:
+                new_gene += selected_gene[i]
+        return new_gene
 
     def _calculate_digit_needed(self, rule_length):
         digit_needed = int(math.ceil(math.log(rule_length,2)))
@@ -258,7 +294,10 @@ class GE(GA):
 
     def translate(self, gene):
         # look from memoized phenotype and return if there is similar gene
-        key_list = filter(lambda x: len(x)<len(gene) and gene[:len(x)] == x, self._memoized_phenotype)
+        key_list = filter(lambda x: \
+            (len(x)<=len(gene) and gene[:len(x)] == x) or
+            (len(x)>len(gene) and gene * (len(x)/len(gene)) == x), 
+            self._memoized_phenotype)
         if len(key_list)>0:
             key = key_list[0]
             return (key, self._memoized_phenotype[key])
@@ -272,7 +311,7 @@ class GE(GA):
         while translation_found and node_translation < self._max_node_translation:
             translation_found = False
             # traverse expr
-            for i in range(len(expr)):
+            for i in xrange(len(expr)):
                 # look for each key if the key was found
                 for expr_key in self._expr_key_list:
                     if expr[i:i+len(expr_key)] == expr_key:
@@ -298,9 +337,24 @@ class GE(GA):
                         break
                 if translation_found:
                     break
-        if node_translation >= self._max_node_translation:
-            raise Exception('Translation Error')
         # prunning
         gene = gene[:current_index]
+        if node_translation >= self._max_node_translation:
+            expr = ''
         self._memoized_phenotype[gene] = expr
         return (gene, expr)
+
+    def show_result(self, *args, **kwargs):
+        print('\nGENERATION %d' %(self._epoch+1))
+        variation = self.individu_variation()
+        print('VARIATION : %d\n' %(variation))
+        for benchmark in self._benchmark_list:
+            individu = self._population_sorted[benchmark][0]
+            gene = individu['gene']
+            print('  BENCHMARK    : %s' %(benchmark))
+            print('  BEST GENE    : %s' %(str(gene)))
+            print('  BEST FITNESS : %f' %(individu['fitness'][benchmark]))
+            try:
+                print('  PHENOTYPE    : %s' %(self.translate(gene)[1]))
+            except:
+                print('  PHENOTYPE UNTRANSLATABLE')

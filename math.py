@@ -1,11 +1,12 @@
 from gogenpy import GE, random
 import numpy as np
+from scipy.stats.stats import pearsonr
 
 '''
 Function Prediction, given x & y (noised), try to guess the function!
 '''
 x = np.linspace(0,99,100)
-y = np.sin(x)
+y = pow(x,3)
 
 class GE_Function_Prediction(GE):
     def __init__(self, *args, **kwargs):
@@ -13,43 +14,35 @@ class GE_Function_Prediction(GE):
         self._x = np.array(kwargs.pop('x', x))
         self._y = np.array(kwargs.pop('y', y))
 
+
+
     def mse(self, prediction_list):
         prediction_list = np.array(prediction_list)
-        return ((prediction_list - self._y) ** 2).mean(axis=None)
+        return ((prediction_list - self._y) ** 2).mean()
 
     def calculate_fitness(self, gene, benchmark):
         try:
             gene, phenotype = self.translate(gene)
-        except:
-            return (gene, 0)
-        # eval
-        try:
+            # translation was failed
+            if phenotype == self._failure_expression:
+                return(gene, self._broken_fitness)
+            # generate program
             global_sandbox = {'x_list' : self._x}
             local_sandbox = {}
             exec('import numpy as np\n' +\
                  'y=[]\n'+\
                  'for x in x_list:\n' +\
                  '    y.append('+phenotype+')', global_sandbox, local_sandbox)
-            y = local_sandbox['y']
-            fitness = 1/(self.mse(y) + 0.000001)
+            y = np.array(local_sandbox['y'])
+            #pearsonr = pearsonr(self._y, y)
+            mse = ((y - self._y) ** 2).mean()
+            # calculate fitness of the program
+            fitness = 1/(mse + self._minimum_fitness)
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except:
-            fitness = 0
+            return (gene, self._broken_fitness)
         return(gene, fitness)
-
-    def show_result(self, *args, **kwargs):
-        print('\nGENERATION %d' %(self._epoch+1))
-        variation = self.individu_variation()
-        print('VARIATION : %d\n' %(variation))
-        for benchmark in self._benchmark_list:
-            individu = self._population_sorted[benchmark][0]
-            gene = individu['gene']
-            print('  BENCHMARK    : %s' %(benchmark))
-            print('  BEST GENE    : %s' %(str(gene)))
-            print('  BEST FITNESS : %f' %(individu['fitness'][benchmark]))
-            try:
-                print('  PHENOTYPE    : %s' %(self.translate(gene)[1]))
-            except:
-                print('  PHENOTYPE UNTRANSTATABLE')
 
 ge = GE_Function_Prediction(
     bnf={
@@ -61,6 +54,7 @@ ge = GE_Function_Prediction(
         '<int>'     : ['<digit>', '<digit>', '<digit><int>'],
         '<float>'   : ['<int>.<int>']
     },
+    #procreation_individuals = ['00001110011','0000111000001110011'],
     gene_size = 20,
     population_size = 100, max_epoch = 1000, 
     operation_rate={'mutation':40, 'crossover':40},
