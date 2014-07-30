@@ -1,5 +1,9 @@
-import math, random
+import math, string, random, sys
 random.seed(1500)
+
+if sys.version_info >= (3,0,0):
+    xrange = range
+    from functools import reduce
 
 class Gogenpy(object):
     '''
@@ -31,6 +35,7 @@ class Gogenpy(object):
         self._generation_sorted         = []
         self._memoized_gene             = []
         self._memoized_fitness          = []
+        self._max_decimal_gene_repr     = 2 ** self._gene_size - 1
         # get total rate
         total_operation_rate = reduce(lambda x,y: x+self._operation_rate[y], self._operation_rate, 0)
         total_rate = total_operation_rate + self._elitism_rate + self._new_rate
@@ -127,7 +132,8 @@ class Gogenpy(object):
                         calculated_fitness = self.calculate_fitness(gene, benchmark)
                     except (KeyboardInterrupt, SystemExit):
                         raise
-                    except:
+                    except Exception, e:
+                        print (e.message)
                         calculated_fitness = self._broken_fitness
                     # if calculated fitness is list or tuple, then the gene should be modified.
                     if (isinstance(calculated_fitness, tuple) or isinstance(calculated_fitness, list)) and len(calculated_fitness)>1:
@@ -179,15 +185,13 @@ class Gogenpy(object):
     def new_individu(self):
         ''' To be overridden by user
         '''
-        gene = ''
-        for i in xrange(self._gene_size):
-            gene += str(random.randrange(2))
+        trying = True
         attempt = 0
-        while attempt<20 and gene in self._memoized_gene:
-            gene = ''
-            for i in xrange(self._gene_size):
-                gene += str(random.randrange(2))
+        while trying:
+            number = random.randrange(self._max_decimal_gene_repr+1)
+            gene = string.zfill(bin(number)[2:],self._gene_size)
             attempt += 1
+            trying = attempt<20 and gene in self._memoized_gene
         return gene
 
     def mutation(self, benchmark):
@@ -202,12 +206,7 @@ class Gogenpy(object):
                 break
         number = random.randrange(len(selected_gene))
         # mutation
-        new_gene = ''
-        for i in xrange(len(selected_gene)):
-            if i == number:
-                new_gene += '1' if selected_gene[number] == '0' else '0'
-            else:
-                new_gene += selected_gene[number]
+        new_gene = selected_gene[:number] + ('1' if selected_gene[number] == '0' else '0') + selected_gene[number+1:]
         return new_gene
 
     def crossover(self, benchmark):
@@ -263,6 +262,22 @@ class GE(GA):
             self._digit_needed.append(self._calculate_digit_needed(i))
         self._digit_needed = tuple(self._digit_needed)
 
+    def new_individu(self):
+        ''' To be overridden by user
+        '''
+        trying = True
+        attempt = 0
+        while trying:
+            number = random.randrange(self._max_decimal_gene_repr+1)
+            gene = string.zfill(bin(number)[2:],self._gene_size)
+            key_list = filter(lambda x: \
+                (len(x)<=len(gene) and gene[:len(x)] == x) or
+                (len(x)>len(gene) and gene * (len(x)/len(gene)) == x), 
+                self._memoized_phenotype)
+            attempt += 1
+            trying = attempt<20 and len(key_list)>0
+        return gene
+
     def mutation(self, benchmark):
         ''' To be overridden by user
         '''
@@ -287,17 +302,20 @@ class GE(GA):
         return new_gene
 
     def _calculate_digit_needed(self, rule_length):
-        digit_needed = int(math.ceil(math.log(rule_length,2)))
-        if digit_needed < 1:
-            digit_needed = 1
+        if rule_length < len(self._digit_needed):
+            digit_needed = self._digit_needed[rule_length]
+        else:
+            digit_needed = int(math.ceil(math.log(rule_length,2)))
+            if digit_needed < 1:
+                digit_needed = 1
         return digit_needed
 
     def translate(self, gene):
         # look from memoized phenotype and return if there is similar gene
         key_list = filter(lambda x: \
-            (len(x)<=len(gene) and gene[:len(x)] == x) or
-            (len(x)>len(gene) and gene * (len(x)/len(gene)) == x), 
-            self._memoized_phenotype)
+                (len(x)<=len(gene) and gene[:len(x)] == x) or
+                (len(x)>len(gene) and gene * (len(x)/len(gene)) == x), 
+                self._memoized_phenotype)
         if len(key_list)>0:
             key = key_list[0]
             return (key, self._memoized_phenotype[key])
@@ -320,10 +338,7 @@ class GE(GA):
                         rule_list = self._bnf[expr_key]
                         rule_length = len(rule_list)
                         # look for digit needed
-                        if rule_length < len(self._digit_needed):
-                            digit_needed = self._digit_needed[rule_length]
-                        else:
-                            digit_needed = self._calculate_digit_needed(rule_length)
+                        digit_needed = self._calculate_digit_needed(rule_length)
                         # gene duplication if needed
                         if current_index+digit_needed >= len(gene):
                             gene += gene

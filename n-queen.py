@@ -1,4 +1,7 @@
-from gogenpy import GA
+from gogenpy import GA, random
+import sys
+if sys.version_info >= (3,0,0):
+    xrange = range
 
 '''
 Find the minimum number of queens needed to occupy or attack all squares.
@@ -31,24 +34,46 @@ class GA_N_Queen(GA):
                     movement_list.append([row, col])
         self.movement_list = movement_list
 
+    def get_queen_index_list(self, gene):
+        queen_index_list = []
+        for i in xrange(len(gene)):
+            if gene[i] == '1':
+                queen_index_list.append(i)
+
+    def mutation_kill_queen(self, gene):
+        queen_index_list = self.get_queen_index_list
+        number = queen_index_list[random.randrange(len(queen_index_list))]
+        gene = gene[:number] + '0' + gene[number+1:]
+        return gene
+
+    def mutation_move_queen(self, gene):
+        queen_index_list = self.get_queen_index_list
+        number_1 = queen_index_list[random.randrange(len(queen_index_list))]
+        number_2 = random.randrange(len(gene))
+        if number_1 < number_2:
+            gene = gene[:number_1] + gene[number_2] + gene[number_1+1:number_2] + gene[number_1] + gene[number_2+1:]
+        else:
+            gene = gene[:number_2] + gene[number_1] + gene[number_2+1:number_1] + gene[number_2] + gene[number_1+1:]
+        return gene
+
     # we have different fitness measurement
     def calculate_fitness(self,gene,benchmark):
-        uncovered_count, overlapped_count, one_count = self.measurement(gene)
+        uncovered_count, overlapped_count, queen_count = self.measurement(gene)
         fitness = ((self._gene_size ** 3) - (uncovered_count * self._gene_size ** 2)) +\
-            ((self._gene_size ** 2) - (overlapped_count * self._gene_size)) +\
-            ((self._gene_size - one_count))
+            ((self._gene_size ** 2) - (queen_count * self._gene_size)) +\
+            ((self._gene_size - overlapped_count))
         return fitness
 
     def measurement(self, gene):
-        one_count = 0
+        queen_count = 0
         overlapped_count = 0
         uncovered_count = 0
-        # calculate how many ones (it must be as few as possible)
+        # calculate how many queens (it must be as few as possible)
         # calculate how many cell doesn't covered (it must be as few as possible)
         # calculate how many overlapped queen (it must be as few as possible)
         for i in range(self._gene_size):
             if gene[i] == '1':
-                one_count += 1
+                queen_count += 1
             row = i / self._board_size
             col = i % self._board_size
             covered = False
@@ -66,15 +91,15 @@ class GA_N_Queen(GA):
                 # don't include itself
                 if new_row != row or new_col != col:
                     new_index = new_row * self._board_size + new_col
-                    # this is one, and other is also one
+                    # this is queen, and other is also queen
                     if gene[new_index] == '1' and gene[i] == '1':
                         overlapped_count += 1
-                    # this is not one, but there is one in line or diagonal
+                    # this is not queen, but there is queen in line or diagonal
                     if not covered and (gene[i] == '1' or (gene[new_index] == '1' and gene[i] == '0')):
                         covered = True
             if not covered:
                 uncovered_count += 1
-        return (uncovered_count, overlapped_count, one_count)
+        return (uncovered_count, overlapped_count, queen_count)
 
 
     def show_result(self, *args, **kwargs):
@@ -83,11 +108,11 @@ class GA_N_Queen(GA):
         print('VARIATION : %d\n' %(variation))
         for benchmark in self._benchmark_list:
             individu = self._population_sorted[benchmark][0]
-            uncovered_count, overlapped_count, one_count = self.measurement(individu['gene'])
+            uncovered_count, overlapped_count, queen_count = self.measurement(individu['gene'])
             print('  BENCHMARK    : %s' %(benchmark))
             print('  BEST GENE    : %s' %(str(individu['gene'])))
             print('  BEST FITNESS : %f' %(individu['fitness'][benchmark]))
-            print('  QUEEN COUNT  : %d' %(one_count))
+            print('  QUEEN COUNT  : %d' %(queen_count))
             print('  UNCOVERED    : %d' %(uncovered_count))
             print('  OVERLAPPED   : %d' %(overlapped_count))
             print('  FORMATION    :')
@@ -98,8 +123,12 @@ class GA_N_Queen(GA):
 
         
 ga = GA_N_Queen(board_size=8, 
-    population_size = 1000, max_epoch = 1000, 
-    operation_rate={'mutation':40, 'crossover':40},
+    population_size = 2000, max_epoch = 1000, 
+    operation_rate={
+        'mutation':20, 
+        'mutation_move_queen':15,
+        'mutation_kill_queen':15,
+        'crossover':15},
     elitism_rate = 10,
     new_rate = 10,
     verbose = False)

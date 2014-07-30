@@ -1,5 +1,5 @@
 from gogenpy import GE, random
-import numpy as np
+import numpy as np, math
 from scipy.stats.stats import pearsonr
 
 '''
@@ -14,17 +14,19 @@ class GE_Function_Prediction(GE):
         self._x = np.array(kwargs.pop('x', x))
         self._y = np.array(kwargs.pop('y', y))
 
-
-
     def mse(self, prediction_list):
         prediction_list = np.array(prediction_list)
         return ((prediction_list - self._y) ** 2).mean()
+
+    def normalize_infinite_range(self,value):
+        # the return value will vary from -1 (for value=-infinite) to 1 (for value=infinite)
+        return 2 * math.atan(value) / (22/7.0)
 
     def calculate_fitness(self, gene, benchmark):
         try:
             gene, phenotype = self.translate(gene)
             # translation was failed
-            if phenotype == self._failure_expression:
+            if phenotype == self._failure_expression or phenotype == '':
                 return(gene, self._broken_fitness)
             # generate program
             global_sandbox = {'x_list' : self._x}
@@ -34,29 +36,31 @@ class GE_Function_Prediction(GE):
                  'for x in x_list:\n' +\
                  '    y.append('+phenotype+')', global_sandbox, local_sandbox)
             y = np.array(local_sandbox['y'])
-            #pearsonr = pearsonr(self._y, y)
+            correlation = pearsonr(y, self._y)[0]
+            if math.isnan(correlation):
+                correlation = 0
             mse = ((y - self._y) ** 2).mean()
             # calculate fitness of the program
-            fitness = 1/(mse + self._minimum_fitness)
+            fitness = correlation + (2 if mse==0 else 2 * self.normalize_infinite_range(mse))
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception, e:
+            print (e.message)
             return (gene, self._broken_fitness)
         return(gene, fitness)
 
 ge = GE_Function_Prediction(
     bnf={
-        '<expr>'    : ['<expr> <op> <expr>', '<func>(<expr>)','<func>(<expr>)', 'x', '<number>'],
-        '<func>'    : ['np.sin', 'np.cos', 'np.tan'],
+        '<expr>'    : ['<expr> <op> <expr>', 'x', '<number>'],
         '<op>'      : ['+', '-', '*'],
         '<number>'  : ['<int>', '<int>', '<float>'],
         '<digit>'   : ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
         '<int>'     : ['<digit>', '<digit>', '<digit><int>'],
         '<float>'   : ['<int>.<int>']
     },
-    #procreation_individuals = ['00001110011','0000111000001110011'],
+    #procreation_individuals = ['00011000011001'],
     gene_size = 20,
-    population_size = 100, max_epoch = 1000, 
+    population_size = 1000, max_epoch = 1000, 
     operation_rate={'mutation':40, 'crossover':40},
     elitism_rate = 10,
     new_rate = 10,
